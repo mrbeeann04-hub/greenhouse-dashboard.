@@ -1,0 +1,894 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Greenhouse Monitoring Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+    margin:0;
+    font-family:Arial,sans-serif;
+    background:#f1f5f3;
+    color:#18352a;
+}
+
+header{
+    background:linear-gradient(120deg,#123b2c,#24734c);
+    color:white;
+    padding:28px;
+}
+
+header h1{margin:0;font-size:27px}
+header p{color:#c7ddd0;margin-bottom:0}
+
+.container{
+    max-width:1200px;
+    margin:25px auto;
+    padding:15px;
+}
+
+.card{
+    background:white;
+    padding:22px;
+    border:1px solid #e7eee9;
+    border-radius:15px;
+    box-shadow:0 3px 12px #0000000c;
+    margin-bottom:18px;
+    transition:.2s;
+}
+
+.card:hover{
+    transform:translateY(-2px);
+    box-shadow:0 7px 20px #00000012;
+}
+
+.login{
+    max-width:420px;
+    margin:40px auto;
+}
+
+input{
+    width:100%;
+    padding:12px;
+    margin:8px 0 15px;
+    border:1px solid #ccc;
+    border-radius:8px;
+}
+
+button{
+    background:#16865b;
+    color:white;
+    padding:12px 20px;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:bold;
+    transition:.2s;
+}
+
+button:hover{background:#106b47}
+button:active{transform:scale(.98)}
+
+.grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:15px;
+}
+
+.metric-title{
+    color:#718078;
+    font-size:14px;
+}
+
+.metric-value{
+    font-size:32px;
+    font-weight:bold;
+    margin-top:15px;
+    color:#16865b;
+}
+
+.unit{color:#718078}
+
+.topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-bottom:20px;
+}
+
+.status{
+    font-size:13px;
+    color:#718078;
+    line-height:1.6;
+}
+
+.chartBox{height:300px}
+
+.hidden{display:none}
+
+.table-wrap{overflow-x:auto}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:650px;
+}
+
+th,td{
+    padding:13px;
+    border-bottom:1px solid #e5ece7;
+    text-align:center;
+    font-size:13px;
+}
+
+th{
+    background:#edf5ef;
+    color:#24563c;
+}
+
+tbody tr:hover{background:#f2f8f4}
+
+.empty{
+    text-align:center;
+    color:#718078;
+    padding:20px;
+}
+
+.history-heading{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:15px;
+    flex-wrap:wrap;
+    margin-bottom:15px;
+}
+
+.export-btn{background:#176b45}
+.export-btn:hover{background:#105536}
+
+.footer{
+    text-align:center;
+    color:#77847b;
+    padding:25px;
+    font-size:12px;
+}
+
+@media(max-width:750px){
+    .grid{grid-template-columns:repeat(2,1fr)}
+    .metric-value{font-size:25px}
+    .chartBox{height:260px}
+}
+
+@media(max-width:420px){
+    .grid{gap:8px}
+    .card{padding:14px}
+    header{padding:20px}
+    header h1{font-size:23px}
+    .history-heading{align-items:stretch}
+    .export-btn{width:100%}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Greenhouse Monitoring</h1>
+    <p>Temperature & Humidity Monitoring System</p>
+</header>
+
+<div class="container">
+
+    <!-- LOGIN -->
+
+    <section id="loginPanel" class="card login">
+
+        <h2>Login Dashboard</h2>
+
+        <label>Email Firebase</label>
+        <input id="email" type="email" placeholder="Masukkan email">
+
+        <label>Password</label>
+        <input id="password" type="password" placeholder="Masukkan password">
+
+        <button id="loginBtn">LOGIN</button>
+
+        <p id="loginMessage" style="color:red"></p>
+
+    </section>
+
+    <!-- DASHBOARD -->
+
+    <section id="dashboard" class="hidden">
+
+        <div class="topbar">
+
+            <div>
+                <h2>Dashboard Greenhouse</h2>
+
+                <p class="status" id="firebaseStatus">
+                    Menunggu koneksi Firebase...
+                </p>
+
+                <p class="status" id="updateTime">
+                    Belum ada data
+                </p>
+            </div>
+
+            <button id="logoutBtn">LOGOUT</button>
+
+        </div>
+
+        <!-- KARTU MONITORING -->
+
+        <div class="grid">
+
+            <div class="card">
+                <div class="metric-title">Suhu Sensor 1</div>
+                <div class="metric-value" id="suhu1">--</div>
+                <div class="unit">°C</div>
+            </div>
+
+            <div class="card">
+                <div class="metric-title">Kelembapan Sensor 1</div>
+                <div class="metric-value" id="lembap1">--</div>
+                <div class="unit">%</div>
+            </div>
+
+            <div class="card">
+                <div class="metric-title">Suhu Sensor 2</div>
+                <div class="metric-value" id="suhu2">--</div>
+                <div class="unit">°C</div>
+            </div>
+
+            <div class="card">
+                <div class="metric-title">Kelembapan Sensor 2</div>
+                <div class="metric-value" id="lembap2">--</div>
+                <div class="unit">%</div>
+            </div>
+
+        </div>
+
+        <!-- GRAFIK SUHU -->
+
+        <div class="card">
+            <h3>Grafik Riwayat Suhu</h3>
+
+            <div class="chartBox">
+                <canvas id="temperatureChart"></canvas>
+            </div>
+        </div>
+
+        <!-- GRAFIK KELEMBAPAN -->
+
+        <div class="card">
+            <h3>Grafik Riwayat Kelembapan</h3>
+
+            <div class="chartBox">
+                <canvas id="humidityChart"></canvas>
+            </div>
+        </div>
+
+        <!-- TABEL RIWAYAT -->
+
+        <div class="card">
+
+            <div class="history-heading">
+                <div>
+                    <h3>Riwayat Pengukuran</h3>
+
+                    <p class="status" id="historyCount">
+                        Menunggu data riwayat...
+                    </p>
+                </div>
+
+                <button id="exportExcelBtn" class="export-btn">
+                    DOWNLOAD EXCEL
+                </button>
+            </div>
+
+            <div class="table-wrap">
+
+                <table>
+
+                    <thead>
+                        <tr>
+                            <th>No.</th>
+                            <th>Suhu 1 (°C)</th>
+                            <th>Kelembapan 1 (%)</th>
+                            <th>Suhu 2 (°C)</th>
+                            <th>Kelembapan 2 (%)</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="historyTable">
+                        <tr>
+                            <td colspan="5" class="empty">
+                                Belum ada data
+                            </td>
+                        </tr>
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+        <!-- INFORMASI SISTEM -->
+
+        <div class="card">
+
+            <h3>Informasi Sistem</h3>
+
+            <p class="status">Pengendali: ESP32</p>
+            <p class="status">Sensor: 2 DHT22</p>
+            <p class="status">Database: Firebase Realtime Database</p>
+            <p class="status">Data terbaru: greenhouse/latest</p>
+            <p class="status">Data riwayat: greenhouse/history</p>
+
+            <p class="status">
+                Dashboard menampilkan data yang tersimpan.
+                Pembaruan sensor memerlukan ESP32 aktif.
+            </p>
+
+        </div>
+
+    </section>
+
+</div>
+
+<div class="footer">
+    GREENHOUSE MONITORING SYSTEM BY YESERD
+</div>
+
+<script type="module">
+
+// FIREBASE SDK
+
+import { initializeApp } from
+"https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+
+import {
+    getAuth,
+    signInWithEmailAndPassword,
+    onAuthStateChanged,
+    signOut
+} from
+"https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js";
+
+import {
+    getDatabase,
+    ref,
+    onValue
+} from
+"https://www.gstatic.com/firebasejs/12.5.0/firebase-database.js";
+
+// KONFIGURASI FIREBASE
+
+const firebaseConfig = {
+
+    apiKey: "AIzaSyCTHquKueqJL3CCni9DwF8OKIlFeyMLBFI",
+
+    authDomain:
+    "monitoring-greenhouse-7233d.firebaseapp.com",
+
+    databaseURL:
+    "https://monitoring-greenhouse-7233d-default-rtdb.asia-southeast1.firebasedatabase.app",
+
+    projectId:
+    "monitoring-greenhouse-7233d",
+
+    storageBucket:
+    "monitoring-greenhouse-7233d.firebasestorage.app",
+
+    messagingSenderId:
+    "817051350698",
+
+    appId:
+    "1:817051350698:web:be445c972c406e66e402d3"
+
+};
+
+// INISIALISASI FIREBASE
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const database = getDatabase(app);
+
+// ELEMEN HTML
+
+const loginPanel = document.getElementById("loginPanel");
+const dashboard = document.getElementById("dashboard");
+
+const loginMessage = document.getElementById("loginMessage");
+
+const firebaseStatus =
+document.getElementById("firebaseStatus");
+
+// DATA RIWAYAT UNTUK EXCEL
+
+let historyRecords = [];
+
+// LOGIN
+
+document.getElementById("loginBtn").onclick =
+async function(){
+
+    const email =
+    document.getElementById("email").value.trim();
+
+    const password =
+    document.getElementById("password").value;
+
+    try{
+
+        loginMessage.style.color = "#16865b";
+        loginMessage.textContent = "Sedang login...";
+
+        await signInWithEmailAndPassword(
+            auth,
+            email,
+            password
+        );
+
+        loginMessage.textContent = "";
+
+    }catch(error){
+
+        loginMessage.style.color = "red";
+
+        loginMessage.textContent =
+        "Login gagal: " + error.message;
+
+    }
+
+};
+
+// LOGOUT
+
+document.getElementById("logoutBtn").onclick =
+async function(){
+
+    await signOut(auth);
+
+};
+
+// FORMAT ANGKA
+
+function tampilkanAngka(id,nilai){
+
+    const elemen = document.getElementById(id);
+
+    if(
+        nilai === null ||
+        nilai === undefined ||
+        !Number.isFinite(Number(nilai))
+    ){
+
+        elemen.textContent = "--";
+
+    }else{
+
+        elemen.textContent =
+        Number(nilai).toFixed(1);
+
+    }
+
+}
+
+// GRAFIK SUHU
+
+const temperatureChart = new Chart(
+    document.getElementById("temperatureChart"),
+    {
+        type:"line",
+
+        data:{
+            labels:[],
+
+            datasets:[
+                {
+                    label:"Suhu Sensor 1",
+                    data:[],
+                    borderColor:"#16865b",
+                    backgroundColor:"#16865b",
+                    tension:0.3
+                },
+                {
+                    label:"Suhu Sensor 2",
+                    data:[],
+                    borderColor:"#2878c7",
+                    backgroundColor:"#2878c7",
+                    tension:0.3
+                }
+            ]
+        },
+
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+
+            interaction:{
+                intersect:false,
+                mode:"index"
+            },
+
+            scales:{
+                y:{
+                    title:{
+                        display:true,
+                        text:"Suhu (°C)"
+                    }
+                }
+            }
+        }
+    }
+);
+
+// GRAFIK KELEMBAPAN
+
+const humidityChart = new Chart(
+    document.getElementById("humidityChart"),
+    {
+        type:"line",
+
+        data:{
+            labels:[],
+
+            datasets:[
+                {
+                    label:"Kelembapan Sensor 1",
+                    data:[],
+                    borderColor:"#16865b",
+                    backgroundColor:"#16865b",
+                    tension:0.3
+                },
+                {
+                    label:"Kelembapan Sensor 2",
+                    data:[],
+                    borderColor:"#2878c7",
+                    backgroundColor:"#2878c7",
+                    tension:0.3
+                }
+            ]
+        },
+
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+
+            interaction:{
+                intersect:false,
+                mode:"index"
+            },
+
+            scales:{
+                y:{
+                    min:0,
+                    max:100,
+
+                    title:{
+                        display:true,
+                        text:"Kelembapan (%)"
+                    }
+                }
+            }
+        }
+    }
+);
+
+// LABEL RIWAYAT
+
+function labelRiwayat(item,index){
+
+    const timestamp = Number(item.timestamp);
+
+    if(timestamp > 1000000000){
+
+        return new Date(timestamp*1000)
+        .toLocaleString("id-ID");
+
+    }
+
+    return "Data " + (index+1);
+
+}
+
+// MENAMPILKAN DATA TERBARU
+
+function tampilkanLatest(data){
+
+    if(!data)return;
+
+    tampilkanAngka("suhu1",data.suhu1);
+    tampilkanAngka("suhu2",data.suhu2);
+
+    tampilkanAngka("lembap1",data.lembap1);
+    tampilkanAngka("lembap2",data.lembap2);
+
+    document.getElementById("updateTime").textContent =
+    "Data terbaru berhasil dibaca dari Firebase.";
+
+}
+
+// EKSPOR EXCEL
+
+document.getElementById("exportExcelBtn").onclick =
+function(){
+
+    if(historyRecords.length === 0){
+
+        alert("Belum ada data riwayat untuk diekspor.");
+
+        return;
+
+    }
+
+    if(typeof XLSX === "undefined"){
+
+        alert("Library Excel belum berhasil dimuat. Periksa koneksi internet.");
+
+        return;
+
+    }
+
+    const dataExcel = historyRecords.map((item,index)=>({
+
+        "No":index+1,
+
+        "Suhu Sensor 1 (°C)":item.suhu1 ?? "",
+
+        "Kelembapan Sensor 1 (%)":item.lembap1 ?? "",
+
+        "Suhu Sensor 2 (°C)":item.suhu2 ?? "",
+
+        "Kelembapan Sensor 2 (%)":item.lembap2 ?? "",
+
+        "Timestamp":item.timestamp ?? "",
+
+        "Waktu Millisecond":item.waktu_ms ?? ""
+
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataExcel);
+
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+        workbook,
+        worksheet,
+        "Riwayat Greenhouse"
+    );
+
+    XLSX.writeFile(
+        workbook,
+        "Riwayat_Greenhouse.xlsx"
+    );
+
+};
+
+// MENAMPILKAN RIWAYAT
+
+function tampilkanHistory(data){
+
+    const table =
+    document.getElementById("historyTable");
+
+    table.innerHTML = "";
+
+    if(!data){
+
+        historyRecords = [];
+
+        table.innerHTML =
+        '<tr><td colspan="5" class="empty">Belum ada riwayat pengukuran.</td></tr>';
+
+        document.getElementById("historyCount").textContent =
+        "Jumlah riwayat: 0";
+
+        return;
+
+    }
+
+    // URUTKAN DATA BERDASARKAN PUSH KEY
+
+    const entries = Object.entries(data)
+    .sort((a,b)=>a[0].localeCompare(b[0]));
+
+    const records = entries.map(entry=>entry[1]);
+
+    historyRecords = records;
+
+    document.getElementById("historyCount").textContent =
+    "Jumlah riwayat pengukuran: " + records.length;
+
+    // DATA GRAFIK
+
+    const labels = records.map((item,index)=>
+        labelRiwayat(item,index)
+    );
+
+    const suhu1 = records.map(item=>
+        item.suhu1 == null ? null : Number(item.suhu1)
+    );
+
+    const suhu2 = records.map(item=>
+        item.suhu2 == null ? null : Number(item.suhu2)
+    );
+
+    const lembap1 = records.map(item=>
+        item.lembap1 == null ? null : Number(item.lembap1)
+    );
+
+    const lembap2 = records.map(item=>
+        item.lembap2 == null ? null : Number(item.lembap2)
+    );
+
+    // UPDATE GRAFIK SUHU
+
+    temperatureChart.data.labels = labels;
+
+    temperatureChart.data.datasets[0].data = suhu1;
+    temperatureChart.data.datasets[1].data = suhu2;
+
+    temperatureChart.update();
+
+    // UPDATE GRAFIK KELEMBAPAN
+
+    humidityChart.data.labels = labels;
+
+    humidityChart.data.datasets[0].data = lembap1;
+    humidityChart.data.datasets[1].data = lembap2;
+
+    humidityChart.update();
+
+    // UPDATE TABEL
+
+    records.slice().reverse().forEach((item,index)=>{
+
+        const row = document.createElement("tr");
+
+        const values = [
+            records.length-index,
+            item.suhu1,
+            item.lembap1,
+            item.suhu2,
+            item.lembap2
+        ];
+
+        values.forEach(value=>{
+
+            const cell = document.createElement("td");
+
+            cell.textContent =
+            value == null ? "--" : value;
+
+            row.appendChild(cell);
+
+        });
+
+        table.appendChild(row);
+
+    });
+
+}
+
+// PEMANTAUAN FIREBASE
+
+let stopLatest = null;
+let stopHistory = null;
+
+onAuthStateChanged(auth,function(user){
+
+    if(stopLatest){
+
+        stopLatest();
+        stopLatest = null;
+
+    }
+
+    if(stopHistory){
+
+        stopHistory();
+        stopHistory = null;
+
+    }
+
+    if(user){
+
+        loginPanel.classList.add("hidden");
+        dashboard.classList.remove("hidden");
+
+        firebaseStatus.textContent =
+        "Menghubungkan ke Firebase...";
+
+        // DATA TERBARU
+
+        const latestRef = ref(
+            database,
+            "greenhouse/latest"
+        );
+
+        stopLatest = onValue(
+            latestRef,
+
+            function(snapshot){
+
+                const data = snapshot.val();
+
+                if(data){
+
+                    tampilkanLatest(data);
+
+                }else{
+
+                    document.getElementById("updateTime").textContent =
+                    "Belum ada data terbaru.";
+
+                }
+
+            },
+
+            function(error){
+
+                firebaseStatus.textContent =
+                "Gagal membaca latest: " + error.message;
+
+            }
+        );
+
+        // DATA RIWAYAT
+
+        const historyRef = ref(
+            database,
+            "greenhouse/history"
+        );
+
+        stopHistory = onValue(
+            historyRef,
+
+            function(snapshot){
+
+                const data = snapshot.val();
+
+                tampilkanHistory(data);
+
+                firebaseStatus.textContent =
+                "Firebase terhubung - Data berhasil dibaca.";
+
+            },
+
+            function(error){
+
+                firebaseStatus.textContent =
+                "Gagal membaca history: " + error.message;
+
+            }
+        );
+
+    }else{
+
+        dashboard.classList.add("hidden");
+        loginPanel.classList.remove("hidden");
+
+        firebaseStatus.textContent =
+        "Silakan login.";
+
+    }
+
+});
+
+</script>
+
+</body>
+</html>
